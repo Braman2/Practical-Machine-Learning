@@ -1,0 +1,140 @@
+---
+title:  "COURSERA - Practical Machine Learning - Prediction Assignment Writeup"
+author: Balasubramanian Raman
+---
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity 
+relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements 
+about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that 
+people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, 
+your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell 
+lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har 
+
+
+## Data Source
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose 
+ ### Citation  
+http://groupware.les.inf.puc-rio.br - They have been very generous in allowing their data to be used for this kind of assignment. 
+
+## Synopsis
+Machine Learning is the process of using algorithms to learn from data. Perhaps the most important aspect of any machine learning problem is the 
+rather human process of determing what we are trying to learn about.
+In the study we will discuss in this paper, they investigated  the use of computing to evaluate "proper" exercise form (possibly allowing computers to replace personal trainers) to help us become better, faster, Strogner.
+ 
+## Loading Library
+```{r}
+library(caret)
+library(randomForest)
+library(rpart) 
+set.seed(31)
+```
+
+## Load Data and initial summary
+```{r}
+# Training Data
+traindata <- read.csv("pml-training.csv",na.strings = c("NA", ""),sep=",", header = T)
+dim(traindata)
+summary(traindata$classe)
+
+# Test Data
+testdata <- read.csv("pml-testing.csv",na.strings = c("NA", ""),sep=",", header = T)
+dim (testdata)
+```
+
+There are 19622 records with 160 variables. The variable we will be predicting on is classe, and the data is split up between the five classes.
+ 
+## Creation Training and Test Data Set
+Since the number of data available in pml-testing.csv is only 20, we are creating new testing data set using data partioning function.  Now let us split the data into a training set(60%) to train the model and a testing set (40%) to test the performanace of the model
+ 
+
+```{r}
+inTrain = createDataPartition(y=traindata$classe, p=0.6, list=FALSE)
+training = traindata[inTrain,]
+testing = traindata[-inTrain,]
+dim(training)
+dim(testing)
+```
+
+There are 160 variables.  
+ 
+## Data Cleansing in both training and testing data set
+Let us try to remove missing values (non zero variables)
+
+```{r}
+nz_data = sapply(training, function(x) { sum(is.na(x))})
+table(nz_data)
+```
+
+There are 100 columns with missing values. We can remove these columns from training data set. 
+
+```{r}
+missing_values_columns = names(nz_data[nz_data!=0])
+training = training[, !names(training) %in% missing_values_columns]
+
+# Non Zero variable data on testing data set
+nz_data = sapply(testing, function(x) { sum(is.na(x))})
+missing_values_columns = names(nz_data[nz_data!=0])
+testing = testing[, !names(testing) %in% missing_values_columns]
+
+```
+
+Also we can remove first five fields which are of least relevant. This includes X(first field that contains serial number), user_name,raw_timestamp_part_1,raw_timestamp_part_2, cvtd_timestamp.
+```{r}
+training = training[,-c(1:5)]
+dim (training)
+testing = testing[,-c(1:5)]
+dim (testing)
+```
+
+Now we are left out with 55 variables.
+ 
+## Using Caret - Train algorithm for Prediction
+### Checking the Model
+
+Training model with random forest due to its highly accurate rate. The model is based on training data set of 53 variables.
+It was suggested to user traincontrol function, allowParallel options to get better  performance for train function. It may take time get this chunk executed.
+We do model fitting using training data set and do prediction with testing data set using model fitting data.
+
+```{r}
+modFit <- train(classe ~ ., method="rf", data=training, trngControl=trainControl(method='cv'), number=3, allowParallel=TRUE) 
+```
+
+### Check accuracy on training data set
+```{r}
+trainingPred <- predict(modFit, testing)
+confusionMatrix(trainingPred, testing$classe) 
+```
+
+
+## Using Decision Tree algorithm for Prediction
+```{r}
+modfittrainrpart <- rpart(classe ~., data=training, method="class")
+predictdt <- predict(modfittrainrpart, testing, type="class")
+confusionMatrix(predictdt, testing$classe)
+```
+
+## Using Random Forest algorithm for Prediction
+```{r}
+modfittrainRF <- randomForest(classe ~., data=training)
+predictrf <- predict(modfittrainRF, testing, type="class")
+confusionMatrix(predictrf , testing$classe)
+```
+
+## Conclusion
+
+Based on the above, Caret.train and Random Forest functions provide better accuracy when compared to decision tree. We also see that the difference in the accuracy between training data set and testing data set is minimal.
+We have built a model to predict exercise form based on movement data. It must be notes that we are predicting here is the 5 predetermined movements. We have noticed that sample error is very minimal, but our prediction may have error 
+although we estimate a very low out of sample error, we can expect the error of predicting due to other factors which are not considered.
+
+I am not including the code for writing the result set as the sample code is already available as part of submission.
+
+
+
+
+
+
